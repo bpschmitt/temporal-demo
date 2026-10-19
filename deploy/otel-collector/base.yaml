@@ -1,0 +1,43 @@
+# Shared OTel Collector config. Combine with exactly one overlay that defines
+# service.pipelines: local.yaml (Grafana LGTM only) or newrelic.yaml (LGTM + New Relic).
+#   otelcol-contrib --config=base.yaml --config=local.yaml
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+  # Temporal server metrics (dev server started with --metrics-port 9090).
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: temporal-server
+          scrape_interval: 15s
+          static_configs:
+            - targets: ["${env:TEMPORAL_METRICS_TARGET:-temporal:9090}"]
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 25
+  resource:
+    attributes:
+      - key: deployment.environment.name
+        value: ${env:DEPLOY_ENV:-local}
+        action: upsert
+  batch: {}
+
+exporters:
+  otlp_grpc/lgtm:
+    endpoint: ${env:LGTM_OTLP_ENDPOINT:-lgtm:4317}
+    tls:
+      insecure: true
+
+service:
+  extensions: [health_check]

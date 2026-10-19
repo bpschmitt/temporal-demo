@@ -1,0 +1,82 @@
+name: temporal-demo
+
+x-app-env: &app-env
+  TEMPORAL_ADDRESS: temporal:7233
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+  OTEL_EXPORTER_OTLP_INSECURE: "true"
+
+services:
+  temporal:
+    image: temporalio/temporal:1.9.1
+    command:
+      - server
+      - start-dev
+      - --ip=0.0.0.0
+      - --metrics-port=9090
+      # Persist to a volume so the server itself can be restarted mid-workflow.
+      - --db-filename=/home/temporal/temporal.db
+    ports:
+      - "7233:7233"   # gRPC frontend
+      - "8233:8233"   # Web UI
+    volumes:
+      - temporal-data:/home/temporal
+    healthcheck:
+      test: ["CMD", "temporal", "operator", "cluster", "health", "--address", "127.0.0.1:7233"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  lgtm:
+    image: grafana/otel-lgtm:0.37.0
+    ports:
+      - "3000:3000"   # Grafana (Tempo, Prometheus, Loki pre-wired)
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.163.1
+    command:
+      - --config=/etc/otelcol/base.yaml
+      # COLLECTOR_OVERLAY=newrelic also exports to New Relic (set by `make up`).
+      - --config=/etc/otelcol/${COLLECTOR_OVERLAY:-local}.yaml
+    environment:
+      NEW_RELIC_LICENSE_KEY: ${NEW_RELIC_LICENSE_KEY:-}
+      NEW_RELIC_OTLP_ENDPOINT: ${NEW_RELIC_OTLP_ENDPOINT:-https://otlp.nr-data.net}
+      DEPLOY_ENV: compose
+    volumes:
+      - ../otel-collector:/etc/otelcol:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC, so `go run` binaries on the host can export too
+      - "4318:4318"   # OTLP HTTP
+    depends_on:
+      - lgtm
+
+  worker:
+    build: ../..
+    image: temporal-demo:latest
+    command: ["/app/worker"]
+    environment:
+      <<: *app-env
+      TRANSIENT_FAILURE_RATE: "0.3"
+      SHIP_SECONDS: "10"
+    restart: on-failure
+    depends_on:
+      temporal:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+
+  api:
+    build: ../..
+    image: temporal-demo:latest
+    command: ["/app/api"]
+    environment: *app-env
+    ports:
+      - "${API_PORT:-8080}:8080"
+    restart: on-failure
+    depends_on:
+      temporal:
+        condition: service_healthy
+      worker:
+        condition: service_started
+
+volumes:
+  temporal-data:

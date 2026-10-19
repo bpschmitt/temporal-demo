@@ -1,0 +1,53 @@
+# Temporal dev server (single binary, SQLite). Fine for a demo; for a
+# production-style install use https://github.com/temporalio/helm-charts.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: temporal
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: temporal}
+  template:
+    metadata:
+      labels: {app: temporal}
+    spec:
+      containers:
+        - name: temporal
+          image: temporalio/temporal:1.9.1
+          args:
+            - server
+            - start-dev
+            - --ip=0.0.0.0
+            - --metrics-port=9090
+            # On an emptyDir: survives container restarts, not pod deletion.
+            - --db-filename=/data/temporal.db
+          ports:
+            - {name: grpc, containerPort: 7233}
+            - {name: ui, containerPort: 8233}
+            - {name: metrics, containerPort: 9090}
+          readinessProbe:
+            exec:
+              command: [temporal, operator, cluster, health, --address, 127.0.0.1:7233]
+            periodSeconds: 5
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {memory: 1Gi}
+          volumeMounts:
+            - {name: data, mountPath: /data}
+      securityContext:
+        fsGroup: 1000
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: temporal
+spec:
+  selector: {app: temporal}
+  ports:
+    - {name: grpc, port: 7233, targetPort: grpc}
+    - {name: ui, port: 8233, targetPort: ui}
+    - {name: metrics, port: 9090, targetPort: metrics}

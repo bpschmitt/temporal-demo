@@ -1,0 +1,23 @@
+# Overlay: send everything to the local Grafana LGTM stack and New Relic.
+# Requires NEW_RELIC_LICENSE_KEY. Use https://otlp.eu01.nr-data.net for EU accounts.
+exporters:
+  otlphttp/newrelic:
+    endpoint: ${env:NEW_RELIC_OTLP_ENDPOINT:-https://otlp.nr-data.net}
+    headers:
+      api-key: ${env:NEW_RELIC_LICENSE_KEY}
+    compression: gzip
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlp_grpc/lgtm, otlphttp/newrelic]
+    metrics:
+      receivers: [otlp, prometheus]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlp_grpc/lgtm, otlphttp/newrelic]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlp_grpc/lgtm, otlphttp/newrelic]

@@ -1,0 +1,25 @@
+# Local-only telemetry (Grafana LGTM). See ../newrelic for the New Relic variant.
+# Build with: kubectl kustomize --load-restrictor LoadRestrictionsNone deploy/k8s/base
+# (the collector config is shared with docker compose in deploy/otel-collector).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: temporal-demo
+
+resources:
+  - namespace.yaml
+  - temporal.yaml
+  - lgtm.yaml
+  - otel-collector.yaml
+  - worker.yaml
+  - api.yaml
+
+configMapGenerator:
+  - name: otel-collector-config
+    files:
+      - ../../otel-collector/base.yaml
+      - ../../otel-collector/local.yaml
+      - ../../otel-collector/newrelic.yaml
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: temporal-demo
