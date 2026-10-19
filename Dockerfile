@@ -1,5 +1,5 @@
 # One image, two binaries: /app/api (default) and /app/worker.
-FROM golang:1.26 AS build
+FROM golang:1.26.9 AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download

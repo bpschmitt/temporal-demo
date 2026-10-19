@@ -40,6 +40,8 @@ make demo-order         # prints workflow_id, e.g. order-1729...
 
 Stop the stack with `make down`.
 
+Published ports bind to `127.0.0.1` only, because the API, the Temporal UI and Grafana have no authentication. This is a local demo; don't expose it.
+
 ### Also send telemetry to New Relic
 
 ```bash

@@ -16,8 +16,8 @@ services:
       # Persist to a volume so the server itself can be restarted mid-workflow.
       - --db-filename=/home/temporal/temporal.db
     ports:
-      - "7233:7233"   # gRPC frontend
-      - "8233:8233"   # Web UI
+      - "127.0.0.1:7233:7233"   # gRPC frontend
+      - "127.0.0.1:8233:8233"   # Web UI
     volumes:
       - temporal-data:/home/temporal
     healthcheck:
@@ -29,7 +29,7 @@ services:
   lgtm:
     image: grafana/otel-lgtm:0.37.0
     ports:
-      - "3000:3000"   # Grafana (Tempo, Prometheus, Loki pre-wired)
+      - "127.0.0.1:3000:3000"   # Grafana (Tempo, Prometheus, Loki pre-wired)
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.163.1
@@ -44,8 +44,8 @@ services:
     volumes:
       - ../otel-collector:/etc/otelcol:ro
     ports:
-      - "4317:4317"   # OTLP gRPC, so `go run` binaries on the host can export too
-      - "4318:4318"   # OTLP HTTP
+      - "127.0.0.1:4317:4317"   # OTLP gRPC, so `go run` binaries on the host can export too
+      - "127.0.0.1:4318:4318"   # OTLP HTTP
     depends_on:
       - lgtm
 
@@ -70,7 +70,7 @@ services:
     command: ["/app/api"]
     environment: *app-env
     ports:
-      - "${API_PORT:-8080}:8080"
+      - "127.0.0.1:${API_PORT:-8080}:8080"
     restart: on-failure
     depends_on:
       temporal:
